@@ -367,7 +367,7 @@ function start(RAW){
   function renderArticle(d, id){
     chrome.hidden = true;
     var it = BY_ID[id];
-    if(!it){ location.hash = '#/d/'+d; return; }
+    if(!it){ location.hash = dayHref(d); return; }
     READ[id] = 1; save('adbrief.read', READ);
     var seq = ordered(filtered(RAW.days[it.date].items));
     if(seq.indexOf(it)<0) seq = ordered(RAW.days[it.date].items);
@@ -376,7 +376,7 @@ function start(RAW){
     var src = it.source || {};
     app.innerHTML =
       '<article class="detail" style="'+catStyle(it.cat)+'">'+
-        '<div class="detail-top"><a class="back" href="#/d/'+it.date+'">← '+fmtShort(it.date)+' 브리핑 목록</a>'+
+        '<div class="detail-top"><a class="back" href="'+dayHref(it.date)+'">← '+fmtShort(it.date)+' 브리핑 목록</a>'+
         '<button class="scrapbtn'+(SCRAP[id]?' on':'')+'" id="scrapBtn" type="button">'+(SCRAP[id]?'★ 스크랩됨':'☆ 스크랩')+'</button></div>'+
         '<div class="kicker"><span class="catpill">'+esc(CAT[it.cat].label)+'</span><span>'+fmtLong(it.date)+' 브리핑</span>'+tags+(it.hot?'<span class="hot" style="margin-left:0">주요</span>':'')+'</div>'+
         '<h1>'+esc(it.title)+'</h1>'+
@@ -409,7 +409,7 @@ function start(RAW){
         return k ? '<i style="--c:'+c.color+';width:'+(k/n*100)+'%" title="'+c.label+' '+k+'건"></i>' : '';
       }).join('');
       var p = d.split('-');
-      return '<li><a href="#/d/'+d+'"><span class="ad">'+(+p[1])+'.'+(+p[2])+'<small>'+p[0]+' · '+WD[parseD(d).getDay()]+'</small></span>'+
+      return '<li><a href="'+dayHref(d)+'"><span class="ad">'+(+p[1])+'.'+(+p[2])+'<small>'+p[0]+' · '+WD[parseD(d).getDay()]+'</small></span>'+
         '<span><span class="at">'+esc(top.title)+'</span><span class="bar">'+bar+'</span></span><span class="ac">'+n+'건 ›</span></a></li>';
     }).join('');
     app.innerHTML = '<div class="pagehead"><h1>지난 브리핑</h1><p>날짜를 누르면 그날의 헤드라인을 다시 볼 수 있습니다. 총 '+DATES.length+'일 · '+ALL.length+'건</p>'+legend+'</div><ul class="arch">'+rows+'</ul>';
@@ -461,6 +461,7 @@ function start(RAW){
 
   /* ---------- Router ---------- */
   var lastHash = null;
+  function dayHref(d){ return d===DATES[0] ? '#/' : '#/d/'+d; }
   function route(){
     if(lastHash!==null) scrollMemo[lastHash] = window.scrollY;
     var h = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
@@ -468,6 +469,7 @@ function start(RAW){
     toggleCal(false);
     $('navArchive').classList.toggle('on', parts[0]==='archive');
     $('navScrap').classList.toggle('on', parts[0]==='scrap');
+    if(parts[0]==='d' && parts[1]===DATES[0] && parts[2]!=='a'){ history.replaceState(null,'',location.pathname+location.search+'#/'); }
     if(parts[0]==='d' && RAW.days[parts[1]]){
       if(parts[2]==='a') renderArticle(parts[1], parts[3]); else renderDay(parts[1]);
     } else if(parts[0]==='archive'){ renderArchive(); }
@@ -490,15 +492,15 @@ function start(RAW){
     var b = e.target.closest('[data-media]'); if(!b) return;
     state.media = b.getAttribute('data-media'); renderDay(currentDay);
   });
-  $('prevDay').addEventListener('click', function(){ var i = DATES.indexOf(currentDay); if(i < DATES.length-1) location.hash = '#/d/'+DATES[i+1]; });
-  $('nextDay').addEventListener('click', function(){ var i = DATES.indexOf(currentDay); if(i > 0) location.hash = '#/d/'+DATES[i-1]; });
+  $('prevDay').addEventListener('click', function(){ var i = DATES.indexOf(currentDay); if(i < DATES.length-1) location.hash = dayHref(DATES[i+1]); });
+  $('nextDay').addEventListener('click', function(){ var i = DATES.indexOf(currentDay); if(i > 0) location.hash = dayHref(DATES[i-1]); });
   $('dateLabel').addEventListener('click', function(e){ e.stopPropagation(); toggleCal(); });
   $('cal').addEventListener('click', function(e){
     e.stopPropagation();
     var cm = e.target.closest('[data-cm]');
     if(cm){ var b = state.calMonth; state.calMonth = new Date(b.getFullYear(), b.getMonth()+(+cm.getAttribute('data-cm')), 1); renderCal(); return; }
     var go = e.target.closest('[data-go]');
-    if(go){ location.hash = '#/d/'+go.getAttribute('data-go'); }
+    if(go){ location.hash = dayHref(go.getAttribute('data-go')); }
   });
   document.addEventListener('click', function(){ if(!$('cal').hidden) toggleCal(false); });
   var qt;
@@ -506,7 +508,7 @@ function start(RAW){
     var v = this.value; clearTimeout(qt);
     qt = setTimeout(function(){
       if(v.trim()) location.hash = '#/search/'+encodeURIComponent(v.trim());
-      else location.hash = '#/d/'+currentDay;
+      else location.hash = dayHref(currentDay);
     }, 250);
   });
   document.addEventListener('keydown', function(e){
@@ -514,7 +516,7 @@ function start(RAW){
     var h = location.hash;
     if(e.key==='Escape'){
       if(!$('cal').hidden) return toggleCal(false);
-      var m = h.match(/#\/d\/([\d-]+)\/a\//); if(m) location.hash = '#/d/'+m[1];
+      var m = h.match(/#\/d\/([\d-]+)\/a\//); if(m) location.hash = dayHref(m[1]);
     }
     if(!chrome.hidden){
       if(e.key==='ArrowLeft') $('prevDay').click();
@@ -536,6 +538,24 @@ function start(RAW){
     var u = new Date(RAW.updated);
     if(!isNaN(u)) $('updated').textContent = '마지막 업데이트: '+u.getFullYear()+'.'+(u.getMonth()+1)+'.'+u.getDate()+' '+String(u.getHours()).padStart(2,'0')+':'+String(u.getMinutes()).padStart(2,'0');
   }
+  // 처음 열 때: 날짜가 박힌 목록 주소(예: #/d/2026-10-14, 북마크)는 무시하고 항상 최신 브리핑부터 보여줌.
+  // 기사 상세(#/d/날짜/a/ID), 검색, 아카이브, 스크랩 주소는 그대로 유지.
+  (function(){
+    var h = location.hash.replace(/^#/, '');
+    if(/^\/d\/[\d-]+\/?$/.test(h)){
+      history.replaceState(null, '', location.pathname + location.search + '#/');
+    }
+  })();
+  // 탭을 열어 둔 채 다음 날이 되면: 화면으로 돌아올 때 새 브리핑이 있는지 확인 후 자동 갱신
+  var loadedLatest = DATES[0], lastCheck = Date.now();
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState!=='visible' || Date.now()-lastCheck < 5*60e3) return;
+    lastCheck = Date.now();
+    fetch('news.json?v='+Date.now(), {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){
+      var latest = Object.keys(d.days).sort().pop();
+      if(latest > loadedLatest){ location.replace(location.pathname + location.search + '#/'); location.reload(); }
+    }).catch(function(){});
+  });
   window.addEventListener('hashchange', route);
   route();
 }
